@@ -9,3 +9,41 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String
+  isOnboarded Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  sessions Session[]
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ipAddress String
+  userAgent String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+} 
+
+model Otp {
+  id         String     @id @default(uuid())
+  userId     String     
+  identifier String     
+  code       String
+  useCase    OtpUseCase
+  expiresAt  DateTime
+  attempts   Int        @default(0)
+  createdAt  DateTime   @default(now())
+  @@index([userId, useCase])
+}
+
+enum OtpUseCase {
+  LOGIN_AUTHENTICATE @map("login-authenticate")
+  FORGOT_PASS        @map("forgot-pass")
+}

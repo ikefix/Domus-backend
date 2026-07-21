@@ -1,0 +1,258 @@
+openapi: 3.1.0
+info:
+  title: Domus API
+  version: 1.0.0
+  description: API Documentation for Domus Backend services including Authentication and User management.
+
+servers:
+  - url: http://localhost:3000
+    description: Local Development Server
+
+tags:
+  - name: User
+    description: User authentication, registration, login, and OTP verification endpoints.
+
+paths:
+  /user/register:
+    post:
+      tags:
+        - User
+      summary: Register a new user
+      description: Registers a new user account, creates an active session, sets authentication cookies, and returns user session details with access token.
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterUserDto'
+      responses:
+        '201':
+          description: User registered successfully. Returns session data and sets authentication cookies.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: Sets access_token (`happydada`) and refresh_token (`hayyya`) HTTP-only cookies.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+        '400':
+          description: Bad request due to validation failure or existing user email.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /user/login:
+    post:
+      tags:
+        - User
+      summary: User login
+      description: Authenticates user credentials. If logging in from a recognized/trusted device session, returns access token and sets cookies. If logging in from an untrusted device, triggers an OTP via email.
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginUserDto'
+      responses:
+        '200':
+          description: Login response for either trusted device or untrusted device requiring OTP.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/LoginTrustedResponse'
+                  - $ref: '#/components/schemas/LoginUntrustedResponse'
+        '400':
+          description: Bad request due to invalid credentials or validation failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /user/verify-login-otp:
+    post:
+      tags:
+        - User
+      summary: Verify login OTP
+      description: Verifies the 6-digit OTP code sent to user email during untrusted device login. On success, creates a session and sets authentication cookies.
+      operationId: verifyLoginOtp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyLoginOtpDto'
+      responses:
+        '200':
+          description: OTP verified successfully. Returns user session and sets authentication cookies.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: Sets access_token (`happydada`) and refresh_token (`hayyya`) HTTP-only cookies.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyOtpResponse'
+        '400':
+          description: Bad request due to invalid, expired, or missing OTP code.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    RegisterUserDto:
+      type: object
+      required:
+        - name
+        - email
+        - password
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 50
+          example: Jane Doe
+        email:
+          type: string
+          format: email
+          example: jane.doe@example.com
+        password:
+          type: string
+          minLength: 8
+          format: password
+          example: P@ssw0rd123!
+
+    LoginUserDto:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: jane.doe@example.com
+        password:
+          type: string
+          format: password
+          example: P@ssw0rd123!
+
+    VerifyLoginOtpDto:
+      type: object
+      required:
+        - email
+        - code
+      properties:
+        email:
+          type: string
+          format: email
+          example: jane.doe@example.com
+        code:
+          type: string
+          minLength: 6
+          maxLength: 6
+          example: '123456'
+
+    RegisterResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        user_data:
+          type: object
+          properties:
+            id:
+              type: string
+              example: clx123456000008l345678901
+            email:
+              type: string
+              example: jane.doe@example.com
+            name:
+              type: string
+              example: Jane Doe
+            isOnboarded:
+              type: boolean
+              example: false
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+        session:
+          type: object
+          properties:
+            id:
+              type: string
+              example: 550e8400-e29b-41d4-a716-446655440000
+            userId:
+              type: string
+            ipAddress:
+              type: string
+              example: 127.0.0.1
+            userAgent:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+            expiresAt:
+              type: string
+              format: date-time
+
+    LoginTrustedResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+    LoginUntrustedResponse:
+      type: object
+      properties:
+        requireOtp:
+          type: boolean
+          example: true
+        emailSentStatus:
+          type: string
+          enum:
+            - success
+            - failed
+          example: success
+
+    VerifyOtpResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        user_data:
+          type: object
+        session:
+          type: object
+
+    ErrorResponse:
+      type: object
+      properties:
+        statusCode:
+          type: integer
+          example: 400
+        message:
+          oneOf:
+            - type: string
+              example: Invalid email or password
+            - type: array
+              items:
+                type: string
+              example: ["Password is required"]
+        error:
+          type: string
+          example: Bad Request
