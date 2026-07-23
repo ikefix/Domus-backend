@@ -5,8 +5,6 @@ import { PrismaModule } from './prisma/prisma.module';
 import { ConfigModule } from '@nestjs/config';
 import { UserModule } from './user/user.module';
 import { CacheModule } from '@nestjs/cache-manager';
-import { Keyv } from '@keyv/redis';
-import KeyvRedis from '@keyv/redis';
 import { ThrottlerModule } from '@nestjs/throttler';
 
 @Module({
@@ -21,13 +19,30 @@ import { ThrottlerModule } from '@nestjs/throttler';
         limit: 10,
       },
     ]),
-    CacheModule.register({
+    CacheModule.registerAsync({
       isGlobal: true,
-      stores: [
-        new Keyv({
-          store: new KeyvRedis(process.env.REDIS_URL ?? ''),
-        }),
-      ],
+      useFactory: async () => {
+        const redisUrl = process.env.REDIS_URL;
+        
+        if (!redisUrl) {
+          // If Redis URL is not configured, use in-memory cache
+          return {
+            stores: [],
+          };
+        }
+
+        // Dynamic import to prevent connection on module load
+        const { createKeyv } = await import('@keyv/redis');
+
+        return {
+          stores: [
+            createKeyv(redisUrl, {
+              throwOnConnectError: false,
+              connectionTimeout: 5000,
+            }),
+          ],
+        };
+      },
     }),
     UserModule,
   ],
