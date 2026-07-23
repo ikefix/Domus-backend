@@ -1,11 +1,11 @@
-import { 
-  IsEmail, 
-  IsNotEmpty, 
-  IsString, 
-  IsStrongPassword, 
-  Matches, 
-  MinLength, 
-  MaxLength 
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsString,
+  IsStrongPassword,
+  Matches,
+  MinLength,
+  MaxLength
 } from 'class-validator';
 
 export class RegisterUserDto {
@@ -15,22 +15,27 @@ export class RegisterUserDto {
   @MaxLength(50, { message: 'Name cannot exceed 50 characters' })
   name: string;
 
-  @IsEmail({}, { message: 'Invalid email' })
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'Email is required' })
+  @IsEmail({}, { message: 'Please provide a valid email address' })
+  @IsString()
   email: string;
 
   @IsString()
   @IsNotEmpty()
-  @Matches(/^\d{6}$/, { message: 'Password must be exactly 6 digits' })
+  @MinLength(6, { message: 'Password must be at least 6 characters long' })
+  @MaxLength(20, { message: 'Password cannot exceed 20 characters' })
   @IsStrongPassword(
     {
       minLength: 6,
-      minLowercase: 0,
-      minUppercase: 0,
+      minLowercase: 1,
+      minUppercase: 1,
       minNumbers: 1,
-      minSymbols: 0,
+      minSymbols: 1,
     },
-    { message: 'Password is too weak' },
+    {
+      message:
+        'Password must contain at least one uppercase letter, one lowercase letter, one number, and one symbol',
+    },
   )
   password: string;
 }
