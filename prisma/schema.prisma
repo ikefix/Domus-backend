@@ -28,6 +28,7 @@ model Session {
   ipAddress String
   userAgent String
   createdAt DateTime @default(now())
+  isOnboarded Boolean @default(false)
   expiresAt DateTime
 } 
 
