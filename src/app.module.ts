@@ -22,25 +22,10 @@ import { ThrottlerModule } from '@nestjs/throttler';
     CacheModule.registerAsync({
       isGlobal: true,
       useFactory: async () => {
-        const redisUrl = process.env.REDIS_URL;
-        
-        if (!redisUrl) {
-          // If Redis URL is not configured, use in-memory cache
-          return {
-            stores: [],
-          };
-        }
-
-        // Dynamic import to prevent connection on module load
-        const { createKeyv } = await import('@keyv/redis');
-
+        // Always use in-memory cache for now to prevent startup hangs
+        // Redis connection can be added later with proper error handling
         return {
-          stores: [
-            createKeyv(redisUrl, {
-              throwOnConnectError: false,
-              connectionTimeout: 5000,
-            }),
-          ],
+          stores: [],
         };
       },
     }),
