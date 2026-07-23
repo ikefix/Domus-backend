@@ -106,6 +106,121 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /user/forgot-password:
+    post:
+      tags:
+        - User
+      summary: Request forgot password OTP
+      description: Sends a 6-digit numeric OTP to the user's email if they forgot their password.
+      operationId: forgotPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordDto'
+      responses:
+        '201':
+          description: Forgot password OTP sent successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  emailSentStatus:
+                    type: string
+                    enum: [success, failed]
+                    example: success
+        '400':
+          description: Bad request due to missing email or user not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /user/reset-password:
+    post:
+      tags:
+        - User
+      summary: Reset user password
+      description: Verifies the 6-digit numeric OTP and updates the user's password. Revokes all active sessions for the user and immediately logs them in.
+      operationId: resetPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordDto'
+      responses:
+        '201':
+          description: Password reset successfully and logged in. Returns user session and sets authentication cookies.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: Sets access_token (`happydada`) and refresh_token (`hayyya`) HTTP-only cookies.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyOtpResponse'
+        '400':
+          description: Bad request due to invalid or expired OTP or validation failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /user/init-google-auth:
+    get:
+      tags:
+        - User
+      summary: Initialize Google OAuth
+      description: Generates a state JWT token for Google OAuth flow to prevent CSRF attacks. The token contains the user's IP and expires in 2 hours.
+      operationId: initGoogleAuth
+      responses:
+        '200':
+          description: State token generated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InitGoogleAuthResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /user/google-callback:
+    get:
+      tags:
+        - User
+      summary: Google OAuth callback
+      description: Handles the callback from Google OAuth. Exchanges the authorization code for tokens, verifies the user's identity, creates a session, and sets authentication cookies. Redirects to frontend on completion.
+      operationId: googleCallback
+      parameters:
+        - name: code
+          in: query
+          required: true
+          description: Authorization code from Google OAuth
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: false
+          description: State JWT token for CSRF protection (optional but recommended)
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Redirect to frontend with success or error status.
+        '400':
+          description: Bad request due to missing code, invalid state, or OAuth failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   schemas:
     RegisterUserDto:
@@ -256,3 +371,43 @@ components:
         error:
           type: string
           example: Bad Request
+
+    ForgotPasswordDto:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          example: jane.doe@example.com
+
+    ResetPasswordDto:
+      type: object
+      required:
+        - email
+        - code
+        - newPassword
+      properties:
+        email:
+          type: string
+          format: email
+          example: jane.doe@example.com
+        code:
+          type: string
+          minLength: 6
+          maxLength: 6
+          example: '123456'
+        newPassword:
+          type: string
+          minLength: 6
+          maxLength: 6
+          example: '654321'
+
+    InitGoogleAuthResponse:
+      type: object
+      properties:
+        state:
+          type: string
+          description: JWT state token containing user IP, expires in 2 hours
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
