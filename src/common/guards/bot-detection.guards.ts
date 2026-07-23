@@ -14,7 +14,6 @@ export class BotDetectionGuard implements CanActivate {
   canActivate(
     context: ExecutionContext,
   ): boolean | Promise<boolean> | Observable<boolean> {
-    console.log('Guards Logged');
     const request = context.switchToHttp().getRequest();
     const userAgent = request.headers['user-agent'] || '';
 

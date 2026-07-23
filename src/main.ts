@@ -3,20 +3,41 @@ import { AppModule } from './app.module';
 import { apiReference } from '@scalar/nestjs-api-reference';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, BadRequestException } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-
-  app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,
-    transform: true
-  }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      stopAtFirstError: true,
+      exceptionFactory: (errors) => {
+        const getMessages = (err: any): string[] => {
+          const msgs: string[] = [];
+          if (err.constraints) {
+            msgs.push(...(Object.values(err.constraints) as string[]));
+          }
+          if (err.children && err.children.length > 0) {
+            for (const child of err.children) {
+              msgs.push(...getMessages(child));
+            }
+          }
+          return msgs;
+        };
+        const messages = errors.flatMap((error) => getMessages(error));
+        return new BadRequestException(messages[0] || 'Validation failed');
+      },
+    }),
+  );
 
   // Serve the OpenAPI YAML spec at /openapi.yaml (separate from /docs to avoid route conflicts)
   app.use('/openapi.yaml', (_req, res) => {
-    const spec = readFileSync(join(process.cwd(), 'docs', 'openapi.yaml'), 'utf8');
+    const spec = readFileSync(
+      join(process.cwd(), 'docs', 'openapi.yaml'),
+      'utf8',
+    );
     res.setHeader('Content-Type', 'application/yaml');
     res.send(spec);
   });
@@ -48,13 +69,18 @@ async function bootstrap() {
 
     if (queryPass === expectedPassword || cookiePass === expectedPassword) {
       if (queryPass === expectedPassword) {
-        res.setHeader('Set-Cookie', `docs_password=${expectedPassword}; Path=/docs; Max-Age=86400; HttpOnly; SameSite=Lax`);
+        res.setHeader(
+          'Set-Cookie',
+          `docs_password=${expectedPassword}; Path=/docs; Max-Age=86400; HttpOnly; SameSite=Lax`,
+        );
         return res.redirect('/docs');
       }
       return next();
     }
 
-    const logoBase64 = readFileSync(join(process.cwd(), 'assets', 'logo-full.png')).toString('base64');
+    const logoBase64 = readFileSync(
+      join(process.cwd(), 'assets', 'logo-full.png'),
+    ).toString('base64');
     res.setHeader('Content-Type', 'text/html');
     return res.send(`
       <!DOCTYPE html>
@@ -62,7 +88,8 @@ async function bootstrap() {
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Domus API Documentation - Lock Screen</title>
+        <title>Domus</title>
+        <link rel="icon" type="image/png" href="/logo.png">
         <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
         <style>
           * {
@@ -180,6 +207,8 @@ async function bootstrap() {
     '/docs',
     apiReference({
       url: '/openapi.yaml',
+      pageTitle: 'Domus',
+      favicon: '/logo.png',
       customCss: `
         .sidebar::before {
           content: "";
